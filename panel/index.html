@@ -1,0 +1,408 @@
+<title>Panel de correo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Caslon+Text:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE work: a chief of staff's morning desk
+   IDEA a triage board: every pending email sorted into who does it
+   PICTURE the distribution bar plus three live columns of task cards
+   COLOUR white ground, ink, teal (autónoma), copper (conjunta), claret (directa)
+   TYPE Libre Caslon Text title + Inter
+   LAYOUT laptop: header with actions, bar, three columns; phone: stacked */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0f1416);--ink:light-dark(#14161a,#e9edee);--mute:light-dark(#5b6168,#9aa4a8);--rule:light-dark(#e2e5e8,#263034);--panel:light-dark(#f5f7f8,#162024);--a:light-dark(#0b6b66,#4fc3b8);--c:light-dark(#b0541a,#e8995e);--d:light-dark(#8a1538,#e2738f);--btn:light-dark(#14161a,#e9edee);--btnink:light-dark(#fff,#0f1416)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 Inter,system-ui,sans-serif;overflow-x:clip;margin:0}
+.band{padding-block:clamp(20px,3vw,40px);padding-left:max(4vw,16px,env(safe-area-inset-left,0px));padding-right:max(4vw,16px,env(safe-area-inset-right,0px));max-width:1400px;margin:0 auto}
+header{display:flex;flex-wrap:wrap;gap:16px 24px;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--rule);padding-bottom:18px}
+h1{font:700 clamp(30px,4vw,44px)/1.05 "Libre Caslon Text",Georgia,serif;letter-spacing:-.02em;margin:0}
+.sub{color:var(--mute);margin:6px 0 0;font-size:14px}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:600 14px Inter,system-ui,sans-serif;border-radius:8px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);padding:9px 14px;cursor:pointer;min-height:40px}
+button:hover{border-color:var(--ink)}
+button:disabled{opacity:.5;cursor:default}
+button.pri{background:var(--btn);color:var(--btnink);border-color:var(--btn)}
+button.sm{min-height:32px;padding:5px 10px;font-size:13px}
+#status{font-size:13px;color:var(--mute);margin-top:14px;min-height:20px;white-space:pre-wrap}
+#status.err{color:var(--d)}
+.dist{margin-top:22px;display:grid;gap:10px}
+.bar{display:flex;height:34px;border-radius:6px;overflow:hidden;background:var(--panel)}
+.bar div{display:flex;align-items:center;padding-left:10px;color:#fff;font-weight:700;font-size:14px;white-space:nowrap;transition:width .5s}
+.bar .a{background:var(--a)}.bar .c{background:var(--c)}.bar .d{background:var(--d)}
+:root[data-theme=dark] .bar div{color:#0f1416}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .bar div{color:#0f1416}}
+#resumen{font-size:16px;max-width:900px;margin:0}
+.cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:26px}
+@media(max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
+.col h2{font-size:17px;margin:0 0 2px;display:flex;align-items:center;gap:8px}
+.col h2 .n{font-variant-numeric:tabular-nums;color:var(--mute);font-weight:500}
+.col p.def{color:var(--mute);font-size:13px;margin:0 0 12px}
+.col{border-top:4px solid var(--k);padding-top:12px}
+.col.a{--k:var(--a)}.col.c{--k:var(--c)}.col.d{--k:var(--d)}
+.card{border:1px solid var(--rule);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--bg)}
+.card.done{opacity:.55}
+.card .top{display:flex;gap:8px;align-items:baseline;justify-content:space-between}
+.card h3{font-size:15px;margin:0;line-height:1.3;cursor:pointer}
+.card .meta{font-size:13px;color:var(--mute);margin-top:3px;overflow-wrap:anywhere}
+.tag{font-size:12px;font-weight:600;border-radius:99px;padding:2px 8px;white-space:nowrap;background:var(--panel)}
+.tag.alta{background:var(--d);color:#fff}
+.card .next{font-size:14px;margin:8px 0 0}
+.det{margin-top:10px;border-top:1px solid var(--rule);padding-top:10px;display:grid;gap:10px}
+.det .why{font-size:13px;color:var(--mute)}
+.row{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+textarea,input[type=text],input[type=email]{width:100%;font:15px/1.5 Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--rule);border-radius:8px;padding:8px 10px}
+textarea{min-height:160px;resize:vertical}
+label{font-size:13px;font-weight:600}
+.out{background:var(--panel);border-radius:8px;padding:10px;font-size:14px;white-space:pre-wrap;overflow-wrap:anywhere}
+.ok{color:var(--a);font-size:13px;font-weight:600}
+.warn{color:var(--d);font-size:13px}
+.empty{border:1px dashed var(--rule);border-radius:10px;padding:18px;color:var(--mute);font-size:14px}
+a{color:inherit}
+details.style{margin-top:34px;border-top:1px solid var(--rule);padding-top:14px}
+details.style summary{cursor:pointer;font-weight:600}
+.agents{display:grid;grid-template-columns:repeat(auto-fit,minmax(14em,1fr));gap:14px;margin-top:14px;font-size:14px}
+.agents div{border-left:3px solid var(--rule);padding-left:10px}
+.agents b{display:block}
+</style>
+
+<div class="band">
+  <header>
+    <div>
+      <h1>Panel de correo</h1>
+      <p class="sub" id="sub">Agente principal sobre tu bandeja de Outlook. Nada se envía sin tu confirmación.</p>
+    </div>
+    <div class="actions">
+      <button id="btnAuto" disabled>Ejecutar autónomas</button>
+      <button id="btnRefresh" class="pri">Actualizar correo</button>
+    </div>
+  </header>
+  <div id="status"></div>
+
+  <section class="dist" aria-label="Distribución">
+    <p id="resumen">Pulsa <b>Actualizar correo</b>: el agente leerá tus últimos 50 correos de la bandeja de entrada y tus enviados, detectará pendientes, tareas, correos sin responder o para derivar, y los repartirá en tres columnas.</p>
+    <div class="bar" id="bar"><div class="a" style="width:33.3%">Autónomas</div><div class="c" style="width:33.3%">En conjunto</div><div class="d" style="width:33.4%">Directas</div></div>
+  </section>
+
+  <section class="cols">
+    <div class="col a"><h2>Autónomas <span class="n" id="nA"></span></h2><p class="def">El agente las prepara solo: borradores, derivaciones obvias, revisiones web.</p><div id="colA"></div></div>
+    <div class="col c"><h2>En conjunto <span class="n" id="nC"></span></h2><p class="def">El agente prepara; tú das la indicación o la decisión.</p><div id="colC"></div></div>
+    <div class="col d"><h2>Directas <span class="n" id="nD"></span></h2><p class="def">Requieren tu criterio personal: aprobaciones, temas sensibles, firmas.</p><div id="colD"></div></div>
+  </section>
+
+  <details class="style" id="styleBox">
+    <summary>Mi estilo de escritura y subagentes</summary>
+    <p class="sub">El redactor imita esta guía, aprendida de tus correos enviados. Puedes corregirla.</p>
+    <textarea id="styleTxt" placeholder="Se generará en la primera actualización a partir de tu carpeta Enviados."></textarea>
+    <div class="row" style="margin-top:8px"><button class="sm" id="btnStyleSave">Guardar guía</button><button class="sm" id="btnStyleLearn">Reaprender de Enviados</button><span id="styleMsg" class="ok"></span></div>
+    <div class="agents">
+      <div><b>Agente principal</b>Lee bandeja y enviados, detecta qué sigue pendiente y clasifica.</div>
+      <div><b>Redactor</b>Escribe respuestas con tu estilo y las deja como borrador en Outlook.</div>
+      <div><b>Derivador</b>Redacta la nota y reenvía al responsable, solo tras tu confirmación.</div>
+      <div><b>Operador web</b>Prepara instrucciones para Claude en Chrome: plataformas, paneles, análisis.</div>
+    </div>
+  </details>
+</div>
+
+<script>
+{
+const MS = "Microsoft 365";
+const SKILLS = "crear-soc-masterkey (crear SOC en Launcher MasterKey), revisar-soc-mc-masterkey (revisar SOC en etapa Revisión MC), reporte-dd-cdp-datascope (reporte de Diálogos Diarios y Confirmaciones de Proceso en DataScope), respuestas-reclamos-impaciente (reclamos en impaciente.cl), ticket-soporte-cpm (ticket en soporte.clinicapuertomontt.cl)";
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const CAT = {autonoma:"A", conjunta:"C", directa:"D"};
+let mcp = null, sample = null, db = null, uid = null;
+let state = {tareas:[], resumen:"", actualizado:0, marcas:{}};
+let estilo = "";
+let open = new Set();
+let busy = false;
+
+function status(msg, err){ const s=$("status"); s.textContent=msg||""; s.className=err?"err":""; }
+
+/* ---------- capability boot ---------- */
+(async () => {
+  [mcp, sample, db] = await Promise.all([claude.use("mcp"), claude.use("sample"), claude.use("db")]);
+  const user = await claude.use("user");
+  if (!mcp || !sample) { status("Este panel necesita abrirse en claude.ai con el conector Microsoft 365 y permiso para usar Claude.", true); $("btnRefresh").disabled = true; return; }
+  if (db && user) {
+    try { uid = await user.id(); } catch { uid = null; }
+    if (uid) {
+      const t = setTimeout(() => status("No se pudo leer el estado guardado todavía."), 10000);
+      try {
+        const [s, e] = await Promise.all([meDoc("estado").get(), meDoc("estilo").get()]);
+        clearTimeout(t);
+        if (s.exists) state = Object.assign(state, s.data());
+        if (e.exists) { estilo = e.data().guia || ""; $("styleTxt").value = estilo; }
+        render();
+        if (state.actualizado) status("Último análisis: " + new Date(state.actualizado).toLocaleString("es-CL"));
+      } catch (err) { clearTimeout(t); }
+    }
+  }
+})();
+
+function meDoc(k){ return db.collection("data/users/" + uid).doc(k); }
+let writing = Promise.resolve();
+function save(){ if(!db||!uid) return; const snap = JSON.parse(JSON.stringify(state)); writing = writing.then(()=>meDoc("estado").set(snap)).catch(()=>status("No se pudo guardar el estado.", true)); }
+
+/* ---------- MCP helpers ---------- */
+function rows(res){
+  const out=[];
+  for (const b of (res && res.content) || []) if (b.type==="text") { try { const j=JSON.parse(b.text); Array.isArray(j)?out.push(...j):out.push(j);} catch{} }
+  if (!out.length && res && res.payload && typeof res.payload==="object") Array.isArray(res.payload)?out.push(...res.payload):out.push(res.payload);
+  return out;
+}
+function textOf(res){ return ((res&&res.content)||[]).filter(b=>b.type==="text").map(b=>b.text).join("\n"); }
+function mcpMsg(e){
+  const c = e && e.code;
+  if (c==="needs_reauth") return "Reconecta Microsoft 365 en claude.ai → Ajustes → Conectores.";
+  if (c==="server_not_connected") return "Agrega el conector Microsoft 365 en claude.ai → Ajustes → Conectores.";
+  if (c==="not_in_manifest"||c==="approval_required") return "El panel necesita tu permiso para usar Microsoft 365. Vuelve a intentarlo y acepta.";
+  if (c==="blocked_by_policy") return "Tu organización bloquea esta herramienta de Microsoft 365.";
+  if (c==="selection_required") return "Elige cuál conector Microsoft 365 usar en el aviso de claude.ai.";
+  if (c==="tool_error") return "Outlook respondió con un error: " + String(e.message||"").slice(0,200);
+  return "Microsoft 365 no respondió (" + (c||"error") + "). Intenta de nuevo en un momento.";
+}
+function sampleMsg(e){
+  const c = e && e.code;
+  if (c==="not_granted"||c==="sampling_disabled") return "El panel no tiene permiso para usar Claude en esta vista.";
+  if (c==="rate_limited") return "Se alcanzó el límite de uso de Claude. Intenta más tarde.";
+  if (c==="invalid_json") return "El agente devolvió un formato inválido. Intenta de nuevo.";
+  if (c==="cancelled") return "Cancelado.";
+  return "Claude no pudo completar la tarea (" + (c||"error") + ").";
+}
+const MCP_CODES = /^(needs_reauth|server_not_connected|server_not_found|server_unavailable|not_in_manifest|approval_required|blocked_by_policy|selection_required|tool_error|self_only)$/;
+const errMsg = e => MCP_CODES.test(String(e && e.code)) ? mcpMsg(e) : sampleMsg(e);
+async function search(input){ return rows(await mcp.callTool(MS, "outlook_email_search", input, {cache:false})).filter(r=>r && r.id); }
+async function readMail(id){
+  const r = await mcp.callTool(MS, "read_resource", {uri:"mail:///messages/" + encodeURIComponent(id)});
+  return textOf(r).slice(0, 9000);
+}
+const norm = s => String(s||"").toLowerCase().replace(/^\s*((re|rv|fw|fwd|reenv|res)\s*:\s*)+/g,"").replace(/\s+/g," ").trim();
+
+/* ---------- style learning ---------- */
+async function learnStyle(sent){
+  status("Aprendiendo tu estilo desde Enviados…");
+  const picks = sent.slice(0, 6);
+  const bodies = [];
+  for (const m of picks) { try { bodies.push("ASUNTO: " + m.subject + "\n" + (await readMail(m.id)).slice(0, 2500)); } catch {} }
+  const prompt = "Eres un analista de estilo. A partir de estos correos ENVIADOS por el usuario, escribe en español una guía breve (máx. 180 palabras, en viñetas) de cómo escribe: saludo típico, trato (usted/tú), longitud, estructura, frases recurrentes, despedida y firma exacta. Mantén siempre un tono profesional. Ignora el texto citado de otros remitentes. Responde solo con la guía.\n\n" + bodies.join("\n\n-----\n\n");
+  const {text} = await sample(prompt, {cache:false});
+  estilo = text.trim(); $("styleTxt").value = estilo;
+  if (db && uid) await meDoc("estilo").set({guia: estilo, ts: Date.now()}).catch(()=>{});
+}
+
+/* ---------- main agent ---------- */
+async function refresh(){
+  if (busy) return; busy = true; $("btnRefresh").disabled = true; $("btnAuto").disabled = true;
+  try {
+    status("Leyendo bandeja de entrada…");
+    let inbox, sent;
+    try {
+      const [p1, p2, s1] = await Promise.all([
+        search({folderName:"Inbox", order:"newest", limit:25, offset:0}),
+        search({folderName:"Inbox", order:"newest", limit:25, offset:25}),
+        search({folderName:"Sent Items", order:"newest", limit:25, offset:0})
+      ]);
+      inbox = [...p1, ...p2]; sent = s1;
+    } catch (e) { status(mcpMsg(e), true); return; }
+    if (!estilo && sent.length) { try { await learnStyle(sent); } catch (e) { status(errMsg(e), true); } }
+
+    const sentIdx = sent.map(s => ({k:norm(s.subject), t:Date.parse(s.sentDateTime||s.receivedDateTime||0)}));
+    const lista = inbox.map((m,i) => {
+      const t = Date.parse(m.receivedDateTime||0);
+      const resp = sentIdx.some(s => s.k && s.k===norm(m.subject) && s.t > t);
+      return {i, id:m.id, asunto:m.subject, de:(m.senderName||"")+" <"+(m.sender||"")+">", fecha:m.receivedDateTime, leido:m.isRead, adjuntos:m.hasAttachments, nDest:(m.recipients||[]).length, respondido:resp, extracto:String(m.summary||"").replace(/\s+/g," ").slice(0,420)};
+    });
+    const marcas = state.marcas || {};
+    const prev = Object.fromEntries((state.tareas||[]).map(t=>[t.id,t]));
+
+    status("El agente principal está analizando " + lista.length + " correos… (puede tardar 1-2 min)");
+    const prompt = `Eres el agente principal (jefe de gabinete) de Victor Pino Fierro, Clínica Puerto Montt. Revisa estos correos de su bandeja de entrada y detecta los que requieren acción: pendientes, tareas, correos sin responder o que conviene derivar a otra persona. Ignora boletines, notificaciones automáticas y correos solo informativos sin acción, y los ya respondidos salvo que quede algo pendiente.
+
+Clasifica cada acción en una categoría:
+- "autonoma": el asistente puede ejecutarla solo sin decisiones de Victor (acusar recibo, confirmar, responder con información que ya está en el hilo, derivar a un responsable evidente, revisar una plataforma web y reportar).
+- "conjunta": el asistente puede preparar casi todo, pero necesita una indicación, dato o decisión de Victor.
+- "directa": Victor debe hacerla personalmente (aprobaciones, pagos, temas de personas o sensibles, negociación, compromisos, firmas, reuniones presenciales).
+
+Puedes usar la herramienta leer_correo para leer el cuerpo completo de los correos dudosos (máximo 6 veces).
+Para "subagente" usa "redactor" (responder), "derivador" (reenviar a otra persona), "web" (requiere entrar a una plataforma o panel web; skills disponibles: ${SKILLS}) o "ninguno".
+
+Responde SOLO con JSON: {"resumen": "2 frases sobre el estado de la bandeja", "tareas": [{"id": "id exacto del correo", "titulo": "acción en infinitivo, breve", "tipo": "responder|derivar|tarea|seguimiento", "categoria": "autonoma|conjunta|directa", "prioridad": "alta|media|baja", "motivo": "por qué esa categoría, 1 frase", "siguientePaso": "qué hará el asistente o qué debe decidir Victor", "subagente": "redactor|derivador|web|ninguno", "derivarA": "email sugerido o vacío", "urlWeb": "url https si aplica o vacío"}]}
+Ordena por prioridad. Correos:
+${JSON.stringify(lista)}`;
+    const ids = new Set(lista.map(x=>x.id));
+    const tools = [{name:"leer_correo", description:"Devuelve el cuerpo completo (texto) de un correo de la lista. Úsalo solo si el extracto no basta para decidir.", inputSchema:{type:"object", properties:{id:{type:"string", description:"id del correo"}}, required:["id"]},
+      execute: async ({id}) => { id = String(id); if(!ids.has(id)) throw new Error("id desconocido"); status("El agente está leyendo un correo completo…"); return (await readMail(id)).slice(0,6000); }}];
+    let out;
+    try { out = await sample.json(prompt, {tools}); } catch (e) { status(sampleMsg(e), true); return; }
+    const byId = Object.fromEntries(inbox.map(m=>[m.id,m]));
+    const tareas = (Array.isArray(out && out.tareas) ? out.tareas : []).filter(t => t && byId[t.id]).map(t => {
+      const m = byId[t.id], p = prev[t.id] || {};
+      return {id:t.id, titulo:String(t.titulo||m.subject), tipo:String(t.tipo||""), categoria:CAT[t.categoria]?t.categoria:"conjunta", prioridad:["alta","media","baja"].includes(t.prioridad)?t.prioridad:"media",
+        motivo:String(t.motivo||""), siguientePaso:String(t.siguientePaso||""), subagente:String(t.subagente||"ninguno"), derivarA:String(t.derivarA||""), urlWeb:String(t.urlWeb||""),
+        asunto:m.subject, de:m.senderName||m.sender, deMail:m.sender, fecha:m.receivedDateTime, link:m.webLink, nDest:(m.recipients||[]).length,
+        borrador:p.borrador||"", borradorLink:p.borradorLink||"", web:p.web||""};
+    });
+    for (const k of Object.keys(marcas)) if (!byId[k] && !prev[k]) delete marcas[k];
+    state = {tareas, resumen:String((out&&out.resumen)||""), actualizado:Date.now(), marcas};
+    save(); render();
+    status("Análisis listo · " + new Date().toLocaleString("es-CL") + " · " + tareas.length + " acciones detectadas en " + lista.length + " correos.");
+  } finally { busy = false; $("btnRefresh").disabled = false; $("btnAuto").disabled = !state.tareas.length; }
+}
+
+/* ---------- subagents ---------- */
+async function redactor(t, indicaciones, modo){
+  const cuerpo = await readMail(t.id);
+  const tarea = modo==="derivar"
+    ? "Escribe una nota breve para REENVIAR este correo a " + (t.derivarA||"la persona responsable") + ", explicando qué se necesita de ella y para cuándo."
+    : "Escribe la RESPUESTA a este correo.";
+  const prompt = `Eres el subagente redactor de Victor Pino Fierro. ${tarea}
+Imita su estilo según esta guía (si está vacía, usa un estilo profesional, cordial y directo en español de Chile):
+${estilo || "(sin guía)"}
+Siempre tono profesional. No inventes datos, cifras ni compromisos: si falta información, déjala como [COMPLETAR: ...].
+Contexto del agente principal: ${t.siguientePaso}
+${indicaciones ? "Indicaciones de Victor: " + indicaciones : ""}
+Devuelve solo el texto del correo (saludo, cuerpo, despedida y firma), sin asunto ni comentarios.
+
+CORREO ORIGINAL:
+${cuerpo}`;
+  const {text} = await sample(prompt, {cache:false});
+  return text.trim();
+}
+async function operadorWeb(t, indicaciones){
+  const cuerpo = await readMail(t.id);
+  const prompt = `Eres el subagente operador web. Escribe en español una instrucción lista para pegar en Claude en Chrome (la extensión que navega con la sesión de Victor) para resolver esta tarea.
+Incluye: objetivo, plataforma y URL (si se conoce), pasos concretos, qué datos revisar o extraer, qué NO hacer sin confirmación (enviar formularios, aprobar, pagar, borrar) y el formato del resultado a devolver.
+Si alguna de estas skills aplica, indícalo al inicio ("Usa la skill /nombre"): ${SKILLS}.
+Tarea: ${t.titulo}. ${t.siguientePaso}
+${t.urlWeb ? "URL sugerida: " + t.urlWeb : ""}
+${indicaciones ? "Indicaciones de Victor: " + indicaciones : ""}
+CORREO:
+${cuerpo.slice(0,6000)}`;
+  const {text} = await sample(prompt, {cache:false});
+  return text.trim();
+}
+const toHtml = s => s.split(/\n{2,}/).map(p => "<p>" + esc(p).replace(/\n/g,"<br>") + "</p>").join("");
+async function crearBorrador(t, texto, todos){
+  const r = await mcp.callTool(MS, todos ? "outlook_create_reply_all_draft" : "outlook_create_reply_draft", {messageId:t.id, body:toHtml(texto), bodyType:"html"});
+  const o = rows(r).find(x => x && x.webLink) || {};
+  return o.webLink || "";
+}
+
+/* ---------- autonomous batch ---------- */
+async function runAuto(){
+  if (busy) return; busy = true; $("btnAuto").disabled = true; $("btnRefresh").disabled = true;
+  const marcas = state.marcas || {};
+  const list = state.tareas.filter(t => cat(t)==="autonoma" && !marcas[t.id]?.hecho && !t.borradorLink && !t.web).slice(0, 8);
+  let n = 0;
+  try {
+    for (const t of list) {
+      n++; status(`Ejecutando autónomas ${n}/${list.length}: ${t.titulo}`);
+      try {
+        if (t.subagente==="web") { t.web = await operadorWeb(t, ""); }
+        else if (t.subagente==="derivador") { t.borrador = await redactor(t, "", "derivar"); }
+        else if (t.subagente==="redactor" || t.tipo==="responder") { t.borrador = await redactor(t, "", "responder"); t.borradorLink = (await crearBorrador(t, t.borrador, t.nDest>1)) || "creado"; }
+        save(); render();
+      } catch (e) { status(errMsg(e), true); break; }
+    }
+    if (list.length) status(`Listo: ${n} tareas autónomas preparadas. Los borradores quedan en tu carpeta Borradores de Outlook; las derivaciones esperan tu confirmación.`);
+    else status("No hay tareas autónomas pendientes de preparar.");
+  } finally { busy = false; $("btnAuto").disabled = false; $("btnRefresh").disabled = false; }
+}
+
+/* ---------- render ---------- */
+const cat = t => (state.marcas?.[t.id]?.categoria) || t.categoria;
+function render(){
+  const T = state.tareas || [];
+  const g = {autonoma:[], conjunta:[], directa:[]};
+  const rank = {alta:0, media:1, baja:2};
+  T.forEach(t => g[cat(t)].push(t));
+  for (const k in g) g[k].sort((a,b) => (!!state.marcas?.[a.id]?.hecho - !!state.marcas?.[b.id]?.hecho) || rank[a.prioridad]-rank[b.prioridad]);
+  const tot = T.length || 1;
+  if (T.length) {
+    $("bar").innerHTML = [["a","autonoma"],["c","conjunta"],["d","directa"]].map(([c,k]) => g[k].length ? `<div class="${c}" style="width:${(g[k].length/tot*100).toFixed(1)}%">${g[k].length}</div>` : "").join("");
+    $("resumen").textContent = state.resumen || "";
+  }
+  $("nA").textContent = T.length ? g.autonoma.length : ""; $("nC").textContent = T.length ? g.conjunta.length : ""; $("nD").textContent = T.length ? g.directa.length : "";
+  const emptyMsg = T.length ? "Nada en esta columna." : "Aún sin análisis.";
+  $("colA").innerHTML = g.autonoma.map(card).join("") || `<div class="empty">${emptyMsg}</div>`;
+  $("colC").innerHTML = g.conjunta.map(card).join("") || `<div class="empty">${emptyMsg}</div>`;
+  $("colD").innerHTML = g.directa.map(card).join("") || `<div class="empty">${emptyMsg}</div>`;
+  $("btnAuto").disabled = busy || !T.length;
+}
+function card(t){
+  const m = state.marcas?.[t.id] || {};
+  const k = t.id.replace(/[^A-Za-z0-9]/g,"").slice(-24);
+  const isOpen = open.has(t.id);
+  const fecha = t.fecha ? new Date(t.fecha).toLocaleDateString("es-CL",{day:"numeric",month:"short"}) : "";
+  const link = /^https:\/\//.test(t.link||"") ? `<a href="${esc(t.link)}" target="_blank" rel="noopener">Abrir en Outlook</a>` : "";
+  const dlink = /^https:\/\//.test(t.borradorLink||"") ? ` <a href="${esc(t.borradorLink)}" target="_blank" rel="noopener">abrir borrador</a>` : "";
+  let det = "";
+  if (isOpen) det = `<div class="det">
+    <div class="why"><b>Asunto:</b> ${esc(t.asunto)}<br><b>Por qué aquí:</b> ${esc(t.motivo)} ${link ? "· " + link : ""}</div>
+    <div><label for="ind-${k}">Indicaciones para el subagente (opcional)</label><input type="text" id="ind-${k}" placeholder="Ej.: confirma el jueves 10:00, pide el informe en PDF"></div>
+    <div class="row">
+      <button class="sm" data-act="redactar" data-id="${esc(t.id)}">Redactar respuesta</button>
+      <button class="sm" data-act="derivar" data-id="${esc(t.id)}">Preparar derivación</button>
+      <button class="sm" data-act="web" data-id="${esc(t.id)}">Instrucción web</button>
+    </div>
+    ${t.borrador ? `<div><label for="bor-${k}">Borrador</label><textarea id="bor-${k}">${esc(t.borrador)}</textarea>
+      <div class="row" style="margin-top:6px">
+        <button class="sm" data-act="draft" data-id="${esc(t.id)}">Guardar como borrador en Outlook</button>
+        <label style="font-weight:400"><input type="checkbox" id="all-${k}" ${t.nDest>1?"checked":""}> Responder a todos</label>
+        ${t.borradorLink ? `<span class="ok">Borrador en Outlook${dlink}</span>` : ""}
+      </div>
+      <div class="row" style="margin-top:6px"><input type="email" id="fwd-${k}" placeholder="Derivar a: correo@dominio.cl" value="${esc(t.derivarA)}" style="max-width:280px"><button class="sm" data-act="fwd" data-id="${esc(t.id)}">Reenviar con esta nota…</button><span id="fwdmsg-${k}" class="warn"></span></div>
+    </div>` : ""}
+    ${t.web ? `<div><label>Instrucción para Claude en Chrome</label><div class="out">${esc(t.web)}</div><div class="row" style="margin-top:6px"><button class="sm" data-act="copy" data-id="${esc(t.id)}">Copiar instrucción</button><span id="cp-${k}" class="ok"></span></div></div>` : ""}
+    <div class="row">
+      <span style="font-size:13px">Mover a:</span>
+      ${["autonoma","conjunta","directa"].filter(c=>c!==cat(t)).map(c=>`<button class="sm" data-act="mv" data-cat="${c}" data-id="${esc(t.id)}">${{autonoma:"Autónoma",conjunta:"En conjunto",directa:"Directa"}[c]}</button>`).join("")}
+      <button class="sm" data-act="done" data-id="${esc(t.id)}">${m.hecho ? "Reabrir" : "Marcar hecha"}</button>
+    </div>
+  </div>`;
+  return `<article class="card ${m.hecho?"done":""}">
+    <div class="top"><h3 data-act="toggle" data-id="${esc(t.id)}" tabindex="0">${esc(t.titulo)}</h3><span class="tag ${t.prioridad==="alta"?"alta":""}">${esc(t.prioridad)}</span></div>
+    <div class="meta">${esc(t.de)} · ${esc(fecha)} · ${esc(t.tipo)}${t.borradorLink?" · borrador listo":""}${t.web?" · instrucción web lista":""}</div>
+    <p class="next">${esc(t.siguientePaso)}</p>${det}</article>`;
+}
+
+/* ---------- events ---------- */
+const confirmFwd = new Set();
+document.addEventListener("click", async ev => {
+  const el = ev.target.closest("[data-act]"); if (!el) return;
+  const id = el.dataset.id, act = el.dataset.act;
+  const t = (state.tareas||[]).find(x => x.id===id); if (!t) return;
+  const k = id.replace(/[^A-Za-z0-9]/g,"").slice(-24);
+  const ind = () => ($("ind-"+k)?.value || "").trim();
+  const marcas = state.marcas || (state.marcas = {});
+  if (act==="toggle") { open.has(id)?open.delete(id):open.add(id); render(); return; }
+  if (act==="mv") { marcas[id] = Object.assign({}, marcas[id], {categoria: el.dataset.cat}); save(); render(); return; }
+  if (act==="done") { marcas[id] = Object.assign({}, marcas[id], {hecho: !marcas[id]?.hecho}); save(); render(); return; }
+  if (act==="copy") { try { await navigator.clipboard.writeText(t.web); $("cp-"+k).textContent="Copiada. Pégala en Claude en Chrome."; } catch { $("cp-"+k).textContent="Selecciona el texto y cópialo manualmente."; } return; }
+  if (busy) return;
+  busy = true; el.disabled = true;
+  try {
+    if (act==="redactar"||act==="derivar") { status(act==="redactar"?"El redactor está escribiendo…":"Preparando nota de derivación…"); t.borrador = await redactor(t, ind(), act==="derivar"?"derivar":"responder"); save(); status(""); }
+    if (act==="web") { status("El operador web está preparando la instrucción…"); t.web = await operadorWeb(t, ind()); save(); status(""); }
+    if (act==="draft") { const txt = $("bor-"+k).value.trim(); if(!txt) return; t.borrador = txt; status("Guardando borrador en Outlook…"); t.borradorLink = (await crearBorrador(t, txt, $("all-"+k)?.checked)) || "creado"; save(); status("Borrador guardado en Outlook. No se ha enviado nada."); }
+    if (act==="fwd") {
+      const to = ($("fwd-"+k).value||"").trim(), note = ($("bor-"+k).value||"").trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { $("fwdmsg-"+k).textContent = "Escribe un correo válido."; return; }
+      if (!confirmFwd.has(id)) { confirmFwd.add(id); el.textContent = "Confirmar: reenviar ahora a " + to; $("fwdmsg-"+k).textContent = "Esto ENVÍA el correo de inmediato."; return; }
+      confirmFwd.delete(id); status("Reenviando…");
+      await mcp.callTool(MS, "outlook_forward_mail", {messageId:id, to:[to], comment:note});
+      marcas[id] = Object.assign({}, marcas[id], {hecho:true}); save(); status("Correo derivado a " + to + ".");
+    }
+    render();
+  } catch (e) {
+    status(act==="fwd" && e?.code==="tool_error" ? "Outlook no permitió reenviar (los correos con adjuntos no se pueden reenviar desde aquí). Ábrelo en Outlook." : errMsg(e), true);
+  } finally { busy = false; el.disabled = false; }
+});
+document.addEventListener("keydown", ev => { if (ev.key==="Enter" && ev.target.matches("h3[data-act]")) ev.target.click(); });
+$("btnRefresh").onclick = refresh;
+$("btnAuto").onclick = runAuto;
+$("btnStyleSave").onclick = async () => { estilo = $("styleTxt").value.trim(); if (db&&uid) { try { await meDoc("estilo").set({guia:estilo, ts:Date.now()}); $("styleMsg").textContent="Guardada."; } catch { $("styleMsg").textContent="No se pudo guardar."; } } };
+$("btnStyleLearn").onclick = async () => { if (busy||!mcp||!sample) return; busy = true; try { const sent = await search({folderName:"Sent Items", order:"newest", limit:25, offset:0}); await learnStyle(sent); status("Guía de estilo actualizada."); } catch (e) { status(errMsg(e), true); } finally { busy = false; } };
+render();
+}
+</script>
