@@ -79,7 +79,7 @@ details.style summary{cursor:pointer;font-weight:600}
   <div id="status"></div>
 
   <section class="dist" aria-label="Distribución">
-    <p id="resumen">Pulsa <b>Actualizar correo</b>: el agente leerá tus últimos 50 correos de la bandeja de entrada y tus enviados, detectará pendientes, tareas, correos sin responder o para derivar, y los repartirá en tres columnas.</p>
+    <p id="resumen">Pulsa <b>Actualizar correo</b>: el agente leerá tus últimos 50 correos de la bandeja de entrada (omitiendo los automáticos) y tus enviados, detectará pendientes, tareas, correos sin responder o para derivar, y los repartirá en tres columnas.</p>
     <div class="bar" id="bar"><div class="a" style="width:33.3%">Autónomas</div><div class="c" style="width:33.3%">En conjunto</div><div class="d" style="width:33.4%">Directas</div></div>
   </section>
 
@@ -94,6 +94,11 @@ details.style summary{cursor:pointer;font-weight:600}
     <p class="sub">El redactor imita esta guía, aprendida de tus correos enviados. Puedes corregirla.</p>
     <textarea id="styleTxt" placeholder="Se generará en la primera actualización a partir de tu carpeta Enviados."></textarea>
     <div class="row" style="margin-top:8px"><button class="sm" id="btnStyleSave">Guardar guía</button><button class="sm" id="btnStyleLearn">Reaprender de Enviados</button><span id="styleMsg" class="ok"></span></div>
+    <label for="omitTxt" style="display:block;margin-top:18px">Remitentes automáticos que se omiten (uno por línea; @dominio omite todo el dominio)</label>
+    <p class="sub" style="margin-top:2px">Además se omiten siempre las direcciones tipo no-reply.</p>
+    <textarea id="omitTxt" style="min-height:90px">no-reply@impaciente.cl
+soporte@reddeclinicasregionales.supportsystem.com</textarea>
+    <div class="row" style="margin-top:8px"><button class="sm" id="btnOmitSave">Guardar filtros</button><span id="omitMsg" class="ok"></span></div>
     <div class="agents">
       <div><b>Agente principal</b>Lee bandeja y enviados, detecta qué sigue pendiente y clasifica.</div>
       <div><b>Redactor</b>Escribe respuestas con tu estilo y las deja como borrador en Outlook.</div>
@@ -113,6 +118,10 @@ const CAT = {autonoma:"A", conjunta:"C", directa:"D"};
 let mcp = null, sample = null, db = null, uid = null;
 let state = {tareas:[], resumen:"", actualizado:0, marcas:{}};
 let estilo = "";
+const OMITIR_DEF = ["no-reply@impaciente.cl", "soporte@reddeclinicasregionales.supportsystem.com"];
+let omitir = OMITIR_DEF.slice();
+const AUTO_RE = /(^|[._+-])(no-?reply|do-?not-?reply|noresponder|no-?responder|mailer-daemon|postmaster)([._+@-]|$)/i;
+const esAuto = m => { const a = String(m.sender||"").toLowerCase(); return AUTO_RE.test(a) || omitir.some(x => x && (a===x || (x.startsWith("@") && a.endsWith(x)))); };
 let open = new Set();
 let busy = false;
 
@@ -128,7 +137,9 @@ function status(msg, err){ const s=$("status"); s.textContent=msg||""; s.classNa
     if (uid) {
       const t = setTimeout(() => status("No se pudo leer el estado guardado todavía."), 10000);
       try {
-        const [s, e] = await Promise.all([meDoc("estado").get(), meDoc("estilo").get()]);
+        const [s, e, f] = await Promise.all([meDoc("estado").get(), meDoc("estilo").get(), meDoc("filtros").get()]);
+        if (f.exists && Array.isArray(f.data().omitir)) omitir = f.data().omitir.map(String);
+        $("omitTxt").value = omitir.join("\n");
         clearTimeout(t);
         if (s.exists) state = Object.assign(state, s.data());
         if (e.exists) { estilo = e.data().guia || ""; $("styleTxt").value = estilo; }
@@ -195,14 +206,15 @@ async function refresh(){
   if (busy) return; busy = true; $("btnRefresh").disabled = true; $("btnAuto").disabled = true;
   try {
     status("Leyendo bandeja de entrada…");
-    let inbox, sent;
+    let inbox, sent, omitidos = 0;
     try {
-      const [p1, p2, s1] = await Promise.all([
-        search({folderName:"Inbox", order:"newest", limit:25, offset:0}),
-        search({folderName:"Inbox", order:"newest", limit:25, offset:25}),
+      const [p1, p2, p3, p4, s1] = await Promise.all([
+        ...[0,25,50,75].map(o => search({folderName:"Inbox", order:"newest", limit:25, offset:o})),
         search({folderName:"Sent Items", order:"newest", limit:25, offset:0})
       ]);
-      inbox = [...p1, ...p2]; sent = s1;
+      const todos = [...p1, ...p2, ...p3, ...p4];
+      inbox = todos.filter(m => !esAuto(m)).slice(0, 50); sent = s1;
+      omitidos = todos.length - todos.filter(m => !esAuto(m)).length;
     } catch (e) { status(mcpMsg(e), true); return; }
     if (!estilo && sent.length) { try { await learnStyle(sent); } catch (e) { status(errMsg(e), true); } }
 
@@ -215,8 +227,8 @@ async function refresh(){
     const marcas = state.marcas || {};
     const prev = Object.fromEntries((state.tareas||[]).map(t=>[t.id,t]));
 
-    status("El agente principal está analizando " + lista.length + " correos… (puede tardar 1-2 min)");
-    const prompt = `Eres el agente principal (jefe de gabinete) de Victor Pino Fierro, Clínica Puerto Montt. Revisa estos correos de su bandeja de entrada y detecta los que requieren acción: pendientes, tareas, correos sin responder o que conviene derivar a otra persona. Ignora boletines, notificaciones automáticas y correos solo informativos sin acción, y los ya respondidos salvo que quede algo pendiente.
+    status("El agente principal está analizando " + lista.length + " correos (" + omitidos + " automáticos omitidos)… puede tardar 1-2 min");
+    const prompt = `Eres el agente principal (jefe de gabinete) de Victor Pino Fierro, Clínica Puerto Montt. Revisa estos correos de su bandeja de entrada y detecta los que requieren acción: pendientes, tareas, correos sin responder o que conviene derivar a otra persona. Ignora boletines, notificaciones automáticas de sistemas (tickets, plataformas, alertas) y correos solo informativos sin acción, y los ya respondidos salvo que quede algo pendiente.
 
 Clasifica cada acción en una categoría:
 - "autonoma": el asistente puede ejecutarla solo sin decisiones de Victor (acusar recibo, confirmar, responder con información que ya está en el hilo, derivar a un responsable evidente, revisar una plataforma web y reportar).
@@ -245,7 +257,7 @@ ${JSON.stringify(lista)}`;
     for (const k of Object.keys(marcas)) if (!byId[k] && !prev[k]) delete marcas[k];
     state = {tareas, resumen:String((out&&out.resumen)||""), actualizado:Date.now(), marcas};
     save(); render();
-    status("Análisis listo · " + new Date().toLocaleString("es-CL") + " · " + tareas.length + " acciones detectadas en " + lista.length + " correos.");
+    status("Análisis listo · " + new Date().toLocaleString("es-CL") + " · " + tareas.length + " acciones detectadas en " + lista.length + " correos · " + omitidos + " automáticos omitidos.");
   } finally { busy = false; $("btnRefresh").disabled = false; $("btnAuto").disabled = !state.tareas.length; }
 }
 
@@ -403,6 +415,11 @@ $("btnRefresh").onclick = refresh;
 $("btnAuto").onclick = runAuto;
 $("btnStyleSave").onclick = async () => { estilo = $("styleTxt").value.trim(); if (db&&uid) { try { await meDoc("estilo").set({guia:estilo, ts:Date.now()}); $("styleMsg").textContent="Guardada."; } catch { $("styleMsg").textContent="No se pudo guardar."; } } };
 $("btnStyleLearn").onclick = async () => { if (busy||!mcp||!sample) return; busy = true; try { const sent = await search({folderName:"Sent Items", order:"newest", limit:25, offset:0}); await learnStyle(sent); status("Guía de estilo actualizada."); } catch (e) { status(errMsg(e), true); } finally { busy = false; } };
+$("btnOmitSave").onclick = async () => {
+  omitir = $("omitTxt").value.split(/[\n,;]+/).map(x => x.trim().toLowerCase()).filter(Boolean);
+  if (db&&uid) { try { await meDoc("filtros").set({omitir}); $("omitMsg").textContent="Guardados. Se aplican en la próxima actualización."; } catch { $("omitMsg").textContent="No se pudo guardar."; } }
+  else $("omitMsg").textContent = "Aplicados solo en esta sesión.";
+};
 render();
 }
 </script>

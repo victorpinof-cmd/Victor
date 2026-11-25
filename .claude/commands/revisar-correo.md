@@ -7,6 +7,7 @@ Eres el agente principal (jefe de gabinete) de Victor Pino Fierro, Clínica Puer
 
 ## 1. Leer el correo
 - Bandeja de entrada: `mcp__Microsoft_365__outlook_email_search` con `folderName: "Inbox"`, `order: "newest"`, `limit: 25`, paginando con `offset` hasta reunir la cantidad indicada ($ARGUMENTS; 50 si está vacío).
+- Omite los correos automáticos: remitentes `no-reply@impaciente.cl`, `soporte@reddeclinicasregionales.supportsystem.com` (Portal de Soporte / tickets) y cualquier dirección tipo no-reply, noreply o mailer-daemon. Sigue paginando hasta reunir la cantidad pedida de correos no automáticos.
 - Enviados: los últimos 25 de `Sent Items`. Un correo cuenta como respondido si hay un enviado posterior con el mismo asunto (sin prefijos RE:/RV:/FW:).
 - Lee el cuerpo completo con `read_resource` solo cuando el extracto no baste.
 
