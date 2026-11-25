@@ -15,14 +15,14 @@ Para ejecutarlas usa subagentes especializados: un **redactor** que escribe con 
 
 - **Actualizar correo**: lee los últimos 50 correos de la bandeja y los 25 últimos enviados, y el agente principal los clasifica.
 - **Ejecutar autónomas**: el redactor crea borradores en Outlook; el operador web prepara la instrucción para Claude en Chrome.
-- En cada tarjeta: redactar respuesta, preparar derivación (pide confirmación antes de reenviar), instrucción web, mover de categoría, marcar hecha.
+- En cada tarjeta: redactar respuesta, preparar derivación (busca en tus correos anteriores quién lleva el tema y pide confirmación antes de reenviar), instrucción web, mover de categoría, marcar hecha.
 - **Mi estilo de escritura**: la guía que usa el redactor; se puede corregir.
 
 El estado se guarda en un espacio privado por usuario. Nada se envía sin una confirmación explícita.
 
 ### 2. Claude Code + Claude en Chrome
 - `/revisar-correo`: el agente principal, con el mismo flujo.
-- `.claude/agents/redactor-correos.md`: el subagente redactor.
+- `.claude/agents/redactor-correos.md`: el subagente redactor. Busca en correos anteriores a quién derivar y guarda los borradores en Outlook web con Claude en Chrome (o con el conector si Chrome no está).
 - `.claude/agents/operador-web.md`: el subagente que navega con la extensión Claude en Chrome (`claude --chrome`).
 
 Opcional: crea un archivo `estilo.md` en la raíz con tu guía de estilo para que el redactor la use directamente.

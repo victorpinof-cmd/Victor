@@ -20,7 +20,7 @@ Pendientes, tareas, correos sin responder y correos que conviene derivar. Ignora
 - **Directa**: Victor debe hacerla en persona (aprobaciones, pagos, temas de personas o sensibles, negociación, firmas, reuniones).
 
 ## 4. Delegar
-- Respuestas y notas de derivación → subagente `redactor-correos` (deja borradores en Outlook con el estilo de Victor; nunca envía).
+- Respuestas y derivaciones → subagente `redactor-correos`. Para derivar, primero busca en correos anteriores quién lleva el tema. Guarda los borradores directamente en Outlook: con Claude en Chrome en Outlook web si está disponible (sesión iniciada con `claude --chrome`); si no, con el conector. Nunca envía.
 - Plataformas, paneles y páginas web → subagente `operador-web` (Claude en Chrome).
 - Lanza en paralelo los subagentes de las tareas **autónomas**. Para las **en conjunto**, prepara el borrador con `[COMPLETAR]` y pregunta a Victor lo que falte. Las **directas** solo se listan, con el contexto necesario.
 

@@ -102,7 +102,7 @@ soporte@reddeclinicasregionales.supportsystem.com</textarea>
     <div class="agents">
       <div><b>Agente principal</b>Lee bandeja y enviados, detecta qué sigue pendiente y clasifica.</div>
       <div><b>Redactor</b>Escribe respuestas con tu estilo y las deja como borrador en Outlook.</div>
-      <div><b>Derivador</b>Redacta la nota y reenvía al responsable, solo tras tu confirmación.</div>
+      <div><b>Derivador</b>Busca en tus correos anteriores quién lleva el tema, redacta la nota y reenvía solo tras tu confirmación.</div>
       <div><b>Operador web</b>Prepara instrucciones para Claude en Chrome: plataformas, paneles, análisis.</div>
     </div>
   </details>
@@ -249,10 +249,12 @@ ${JSON.stringify(lista)}`;
     const byId = Object.fromEntries(inbox.map(m=>[m.id,m]));
     const tareas = (Array.isArray(out && out.tareas) ? out.tareas : []).filter(t => t && byId[t.id]).map(t => {
       const m = byId[t.id], p = prev[t.id] || {};
-      return {id:t.id, titulo:String(t.titulo||m.subject), tipo:String(t.tipo||""), categoria:CAT[t.categoria]?t.categoria:"conjunta", prioridad:["alta","media","baja"].includes(t.prioridad)?t.prioridad:"media",
+      const out2 = {id:t.id, titulo:String(t.titulo||m.subject), tipo:String(t.tipo||""), categoria:CAT[t.categoria]?t.categoria:"conjunta", prioridad:["alta","media","baja"].includes(t.prioridad)?t.prioridad:"media",
         motivo:String(t.motivo||""), siguientePaso:String(t.siguientePaso||""), subagente:String(t.subagente||"ninguno"), derivarA:String(t.derivarA||""), urlWeb:String(t.urlWeb||""),
         asunto:m.subject, de:m.senderName||m.sender, deMail:m.sender, fecha:m.receivedDateTime, link:m.webLink, nDest:(m.recipients||[]).length,
-        borrador:p.borrador||"", borradorLink:p.borradorLink||"", web:p.web||""};
+        borrador:p.borrador||"", borradorLink:p.borradorLink||"", web:p.web||"", derivarMotivo:p.derivarMotivo||"", alternativas:p.alternativas||[]};
+      if (p.derivarMotivo && p.derivarA) out2.derivarA = p.derivarA;
+      return out2;
     });
     for (const k of Object.keys(marcas)) if (!byId[k] && !prev[k]) delete marcas[k];
     state = {tareas, resumen:String((out&&out.resumen)||""), actualizado:Date.now(), marcas};
@@ -280,6 +282,38 @@ ${cuerpo}`;
   const {text} = await sample(prompt, {cache:false});
   return text.trim();
 }
+/* Subagente buscador: revisa correos anteriores para elegir a quién derivar */
+async function sugerirDestinatario(t, indicaciones){
+  const cuerpo = await readMail(t.id);
+  const compact = r => r.slice(0, 15).map(m => ({asunto:m.subject, de:(m.senderName||"")+" <"+(m.sender||"")+">", para:(m.namedRecipients||[]).slice(0,8).map(x=>(x.name||"")+" <"+(x.address||"")+">"), fecha:String(m.receivedDateTime||"").slice(0,10), extracto:String(m.summary||"").replace(/\s+/g," ").slice(0,160)}));
+  let n = 0;
+  const tools = [{name:"buscar_correos", description:"Busca en TODO el correo de Victor (recibidos y enviados). Úsalo para ver a quién le ha escrito o derivado antes sobre este tema, o quién suele responder sobre él. Devuelve hasta 15 correos con remitente, destinatarios y extracto.",
+    inputSchema:{type:"object", properties:{texto:{type:"string", description:"palabras clave del tema (2-4 palabras)"}, destinatario:{type:"string", description:"email: correos enviados a esta persona"}, remitente:{type:"string", description:"email o nombre: correos de esta persona"}}},
+    execute: async (inp) => {
+      if (++n > 8) throw new Error("límite de búsquedas alcanzado");
+      const q = {limit:15};
+      if (inp.texto) q.query = String(inp.texto).slice(0,120);
+      if (inp.destinatario) q.recipient = String(inp.destinatario);
+      if (inp.remitente) q.sender = String(inp.remitente);
+      if (!q.query && !q.recipient && !q.sender) throw new Error("indica texto, destinatario o remitente");
+      status("Buscando en correos anteriores quién lleva este tema… (" + n + ")");
+      return compact(await search(q));
+    }}];
+  const prompt = `Eres el subagente que elige a quién DERIVAR un correo de Victor Pino Fierro (vpino@clinicapuertomontt.cl), Clínica Puerto Montt.
+Usa buscar_correos (varias veces, con distintas palabras clave del tema y revisando a quién Victor ha reenviado o escrito antes sobre asuntos similares) para encontrar a la persona más adecuada. Prefiere personas que ya han gestionado ese tema y que no sean el remitente original ni Victor.
+${indicaciones ? "Indicaciones de Victor: " + indicaciones : ""}
+Tarea: ${t.titulo}. ${t.siguientePaso}
+Responde SOLO con JSON: {"email": "...", "nombre": "...", "motivo": "evidencia concreta en 1 frase (ej.: le derivaste 3 correos de mantención en octubre)", "alternativas": [{"email": "...", "nombre": "...", "motivo": "..."}]} (máximo 2 alternativas). Si no hay evidencia, deja email vacío y explica en motivo.
+
+CORREO A DERIVAR:
+${cuerpo.slice(0,5000)}`;
+  const r = await sample.json(prompt, {tools});
+  const okMail = x => /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/.test(String(x||""));
+  if (r && okMail(r.email)) t.derivarA = String(r.email);
+  t.derivarMotivo = String((r && r.motivo) || "Sin evidencia en correos anteriores.") + (r && r.nombre ? " (" + String(r.nombre) + ")" : "");
+  t.alternativas = (Array.isArray(r && r.alternativas) ? r.alternativas : []).filter(a => a && okMail(a.email)).slice(0,2).map(a => ({email:String(a.email), nombre:String(a.nombre||""), motivo:String(a.motivo||"")}));
+}
+
 async function operadorWeb(t, indicaciones){
   const cuerpo = await readMail(t.id);
   const prompt = `Eres el subagente operador web. Escribe en español una instrucción lista para pegar en Claude en Chrome (la extensión que navega con la sesión de Victor) para resolver esta tarea.
@@ -311,7 +345,7 @@ async function runAuto(){
       n++; status(`Ejecutando autónomas ${n}/${list.length}: ${t.titulo}`);
       try {
         if (t.subagente==="web") { t.web = await operadorWeb(t, ""); }
-        else if (t.subagente==="derivador") { t.borrador = await redactor(t, "", "derivar"); }
+        else if (t.subagente==="derivador") { await sugerirDestinatario(t, ""); t.borrador = await redactor(t, "", "derivar"); }
         else if (t.subagente==="redactor" || t.tipo==="responder") { t.borrador = await redactor(t, "", "responder"); t.borradorLink = (await crearBorrador(t, t.borrador, t.nDest>1)) || "creado"; }
         save(); render();
       } catch (e) { status(errMsg(e), true); break; }
@@ -364,6 +398,7 @@ function card(t){
         ${t.borradorLink ? `<span class="ok">Borrador en Outlook${dlink}</span>` : ""}
       </div>
       <div class="row" style="margin-top:6px"><input type="email" id="fwd-${k}" placeholder="Derivar a: correo@dominio.cl" value="${esc(t.derivarA)}" style="max-width:280px"><button class="sm" data-act="fwd" data-id="${esc(t.id)}">Reenviar con esta nota…</button><span id="fwdmsg-${k}" class="warn"></span></div>
+      ${t.derivarMotivo ? `<div class="why" style="margin-top:6px">Sugerido por correos anteriores: ${esc(t.derivarMotivo)}${t.alternativas.length ? `<div class="row" style="margin-top:4px">Otras opciones: ${t.alternativas.map(a=>`<button class="sm" data-act="alt" data-mail="${esc(a.email)}" data-id="${esc(t.id)}" title="${esc(a.motivo)}">${esc(a.nombre||a.email)}</button>`).join("")}</div>` : ""}</div>` : ""}
     </div>` : ""}
     ${t.web ? `<div><label>Instrucción para Claude en Chrome</label><div class="out">${esc(t.web)}</div><div class="row" style="margin-top:6px"><button class="sm" data-act="copy" data-id="${esc(t.id)}">Copiar instrucción</button><span id="cp-${k}" class="ok"></span></div></div>` : ""}
     <div class="row">
@@ -394,7 +429,9 @@ document.addEventListener("click", async ev => {
   if (busy) return;
   busy = true; el.disabled = true;
   try {
-    if (act==="redactar"||act==="derivar") { status(act==="redactar"?"El redactor está escribiendo…":"Preparando nota de derivación…"); t.borrador = await redactor(t, ind(), act==="derivar"?"derivar":"responder"); save(); status(""); }
+    if (act==="derivar") { await sugerirDestinatario(t, ind()); save(); render(); }
+    if (act==="redactar"||act==="derivar") { status(act==="redactar"?"El redactor está escribiendo…":"Preparando nota de derivación para " + (t.derivarA||"el responsable") + "…"); t.borrador = await redactor(t, ind(), act==="derivar"?"derivar":"responder"); save(); status(""); }
+    if (act==="alt") { t.derivarA = el.dataset.mail; save(); render(); return; }
     if (act==="web") { status("El operador web está preparando la instrucción…"); t.web = await operadorWeb(t, ind()); save(); status(""); }
     if (act==="draft") { const txt = $("bor-"+k).value.trim(); if(!txt) return; t.borrador = txt; status("Guardando borrador en Outlook…"); t.borradorLink = (await crearBorrador(t, txt, $("all-"+k)?.checked)) || "creado"; save(); status("Borrador guardado en Outlook. No se ha enviado nada."); }
     if (act==="fwd") {
